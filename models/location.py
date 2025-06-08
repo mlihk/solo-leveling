@@ -86,8 +86,8 @@ LOCATIONS = {
         ]
     ),
     'guild': Location(
-        "Guild",
-        "A place where hunters gather. You can take on quests and meet other hunters.",
+        "Guild Hall",
+        "The headquarters of the Hunters Guild.",
         [
             Event("A new quest is available!", 1, 0.4, 'quest', {}),
             Event("You learn from other hunters.", 1, 0.6, 'training', {'experience': 30})

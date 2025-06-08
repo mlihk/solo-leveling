@@ -2,12 +2,25 @@ from enum import Enum
 import random
 
 class EffectType(Enum):
+    # Negative Effects
     POISON = "poison"
     BURN = "burn"
     FREEZE = "freeze"
     STUN = "stun"
     BLEED = "bleed"
     CURSE = "curse"
+    BLIND = "blind"
+    WEAK = "weak"
+    SLOW = "slow"
+    SILENCE = "silence"
+    CONFUSE = "confuse"
+    FEAR = "fear"
+    BERSERK = "berserk"
+    VULNERABLE = "vulnerable"
+    MARKED = "marked"
+    DOOM = "doom"
+    
+    # Positive Effects
     BLESS = "bless"
     REGENERATION = "regeneration"
     MANA_REGEN = "mana_regen"
@@ -64,6 +77,47 @@ class Effect:
         elif self.type == EffectType.FREEZE:
             target.frozen = True
             return f"{target.username} is frozen!"
+        
+        elif self.type == EffectType.BLIND:
+            target.blinded = True
+            return f"{target.username} is blinded and has reduced accuracy!"
+        
+        elif self.type == EffectType.WEAK:
+            target.strength = int(target.strength * 0.8)  # Reduce strength by 20%
+            return f"{target.username} is weakened!"
+        
+        elif self.type == EffectType.SLOW:
+            target.agility = int(target.agility * 0.8)  # Reduce agility by 20%
+            return f"{target.username} is slowed!"
+        
+        elif self.type == EffectType.SILENCE:
+            target.silenced = True
+            return f"{target.username} is silenced and cannot use skills!"
+        
+        elif self.type == EffectType.CONFUSE:
+            target.confused = True
+            return f"{target.username} is confused and may attack randomly!"
+        
+        elif self.type == EffectType.FEAR:
+            target.feared = True
+            return f"{target.username} is feared and may flee!"
+        
+        elif self.type == EffectType.BERSERK:
+            target.strength = int(target.strength * 1.5)  # Increase strength by 50%
+            target.defense = int(target.defense * 0.5)  # Reduce defense by 50%
+            return f"{target.username} enters a berserk state!"
+        
+        elif self.type == EffectType.VULNERABLE:
+            target.defense = int(target.defense * 0.7)  # Reduce defense by 30%
+            return f"{target.username} becomes vulnerable!"
+        
+        elif self.type == EffectType.MARKED:
+            target.marked = True
+            return f"{target.username} is marked for death!"
+        
+        elif self.type == EffectType.DOOM:
+            target.doomed = True
+            return f"{target.username} is doomed to die in {self.duration} turns!"
         
         elif self.type == EffectType.CURSE:
             target.defense = int(target.defense * 0.8)  # Reduce defense by 20%

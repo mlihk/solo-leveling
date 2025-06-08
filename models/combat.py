@@ -43,6 +43,12 @@ class Combat:
         elif self.enemy_effects.has_effect(EffectType.WEAK) and attacker == self.enemy:
             damage = int(damage * 0.8)
         
+        # Check for strength boost
+        if self.player_effects.has_effect(EffectType.STRENGTH_BOOST) and attacker == self.player:
+            damage = int(damage * 1.2)
+        elif self.enemy_effects.has_effect(EffectType.STRENGTH_BOOST) and attacker == self.enemy:
+            damage = int(damage * 1.2)
+        
         return damage
     
     def player_attack(self):
@@ -55,6 +61,20 @@ class Combat:
         if self.player_effects.has_effect(EffectType.BLIND):
             if random.random() < 0.3:  # 30% chance to miss
                 self.battle_log.append("Your attack misses due to blindness!")
+                return 0
+        
+        # Check for confusion
+        if self.player_effects.has_effect(EffectType.CONFUSE):
+            if random.random() < 0.3:  # 30% chance to hit self
+                damage = self.calculate_damage(self.player, self.player)
+                actual_damage = self.player.take_damage(damage)
+                self.battle_log.append(f"You are confused and hit yourself for {actual_damage} damage!")
+                return actual_damage
+        
+        # Check for fear
+        if self.player_effects.has_effect(EffectType.FEAR):
+            if random.random() < 0.2:  # 20% chance to flee
+                self.battle_log.append("You are too afraid to attack!")
                 return 0
         
         damage = self.calculate_damage(self.player, self.enemy)
@@ -74,6 +94,20 @@ class Combat:
                 self.battle_log.append("Enemy's attack misses due to blindness!")
                 return 0
         
+        # Check for confusion
+        if self.enemy_effects.has_effect(EffectType.CONFUSE):
+            if random.random() < 0.3:  # 30% chance to hit self
+                damage = self.calculate_damage(self.enemy, self.enemy)
+                actual_damage = self.enemy.take_damage(damage)
+                self.battle_log.append(f"Enemy is confused and hits itself for {actual_damage} damage!")
+                return actual_damage
+        
+        # Check for fear
+        if self.enemy_effects.has_effect(EffectType.FEAR):
+            if random.random() < 0.2:  # 20% chance to flee
+                self.battle_log.append("Enemy is too afraid to attack!")
+                return 0
+        
         damage = self.calculate_damage(self.enemy, self.player)
         actual_damage = self.player.take_damage(damage)
         self.battle_log.append(f"Enemy deals {actual_damage} damage to you!")
@@ -88,6 +122,11 @@ class Combat:
         return 0
     
     def use_skill(self, skill_name):
+        # Check for silence
+        if self.player_effects.has_effect(EffectType.SILENCE):
+            self.battle_log.append("You are silenced and cannot use skills!")
+            return False
+        
         # Basic skill system
         skills = {
             'fireball': {'mana_cost': 20, 'damage_multiplier': 1.5},
@@ -203,8 +242,9 @@ class Combat:
         return 'continue'
     
     def get_battle_status(self):
+        """Get the current battle status."""
         status = {
-            'Player': f"{self.player.username} (HP: {self.player.health}/{self.player.max_health}, MP: {self.player.mana}/{self.player.max_mana})",
+            'Player': f"{self.player.name} (HP: {self.player.health}/{self.player.max_health}, MP: {self.player.mana}/{self.player.max_mana})",
             'Enemy': f"{self.enemy.name} (HP: {self.enemy.health}/{self.enemy.max_health})",
             'Turn': self.turn_count,
             'battle_log': self.battle_log

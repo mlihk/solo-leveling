@@ -10,6 +10,7 @@ from models.items import ItemSlot
 from models.classes import PlayerClass
 from models.shop import Shop
 from models.tower import Tower
+from models.reward_manager import RewardManager
 
 class Game:
     def __init__(self):
@@ -26,6 +27,7 @@ class Game:
         self.max_messages = 20  # Increased to handle inventory display
         self.shop = Shop()
         self.tower = Tower()
+        self.reward_manager = RewardManager()  # Add reward manager
     
     def clear_screen(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -59,6 +61,8 @@ class Game:
             self.display_shop_screen()
         elif self.game_state == 'tower':
             self.display_tower_screen()
+        elif self.game_state == 'guild':
+            self.display_guild_screen()
     
     def display_login_screen(self):
         while True:
@@ -224,6 +228,9 @@ class Game:
             elif location_key == 'tower_of_trial':
                 self.game_state = 'tower'
                 return
+            elif location_key == 'guild':
+                self.game_state = 'guild'
+                return
             else:
                 self.add_message(f"You are already at {self.current_location.name}.")
                 return
@@ -233,12 +240,15 @@ class Game:
         self.game_time.advance_time(1)  # Each movement takes 1 hour
         self.add_message(f"You travel to {location.name}.")
         
-        # Force shop to open when visiting item store
+        # Force specific interfaces to open when visiting certain locations
         if location_key == 'item_store':
             self.game_state = 'shop'
             return
         elif location_key == 'tower_of_trial':
             self.game_state = 'tower'
+            return
+        elif location_key == 'guild':
+            self.game_state = 'guild'
             return
         
         # Trigger random event
@@ -294,11 +304,19 @@ Each movement takes 1 hour of your day. Make sure to rest when needed!
         self.add_message(f"\n{self.current_location.name}: {self.current_location.description}")
     
     def show_inventory(self):
-        # Clear previous messages
-        self.message_log = []
-        messages = []
-        messages.append("=== Equipment ===")
-
+        """Display the inventory screen."""
+        self.clear_screen()
+        print("=== Inventory ===")
+        print(f"Gold: {self.current_player.gold}")
+        
+        # Display latest message if any
+        if self.message_log:
+            print(f"\n=== Latest Message ===")
+            print(self.message_log[-1])
+        
+        # Display equipped items
+        print("\n=== Equipment ===")
+        
         # Track equipped set items
         set_counts = {}  # set_name -> count
         set_items = {}   # set_name -> list of (slot, item)
@@ -310,8 +328,9 @@ Each movement takes 1 hour of your day. Make sure to rest when needed!
         off_hand = self.current_player.equipment[ItemSlot.OFF_HAND]
         left_side.append(f"Main Hand: {main_hand.name if main_hand else 'None'}")
         left_side.append(f"Off Hand: {off_hand.name if off_hand else 'None'}")
+        left_side.append("")  # Empty line for spacing
 
-        left_side.append("\nArmor:")
+        left_side.append("Armor:                         Rings:")
         armor_slots = [
             ItemSlot.HEAD, ItemSlot.SHOULDER, ItemSlot.CHEST, ItemSlot.WRIST,
             ItemSlot.HANDS, ItemSlot.WAIST, ItemSlot.LEGS, ItemSlot.FEET
@@ -325,11 +344,21 @@ Each movement takes 1 hour of your day. Make sure to rest when needed!
                 set_counts[item.set_name] += 1
                 set_items.setdefault(item.set_name, []).append((slot, item))
 
+        # Add empty lines for Ring 9 and 10
+        left_side.append("")
+        left_side.append("")
+
         # Right side (Rings)
         right_side = []
-        right_side.append("\nRings:")
-        for i, ring in enumerate(self.current_player.rings):
-            right_side.append(f"Ring {i+1}: {ring.name if ring else 'None'}")
+        right_side.append("")  # Empty line to align with Weapons
+        right_side.append("")  # Empty line to align with Main Hand
+        right_side.append("")  # Empty line to align with Off Hand
+        right_side.append("")  # Empty line for spacing
+        right_side.append("")  # Empty line for Rings header (now part of Armor line)
+        # Show all 10 ring slots
+        for i in range(10):
+            ring = self.current_player.rings[i] if i < len(self.current_player.rings) else None
+            right_side.append(f"Ring {i+1:2d}: {ring.name if ring else 'None'}")  # Use 2d for consistent spacing
             if ring and hasattr(ring, 'set_name') and ring.set_name:
                 set_counts.setdefault(ring.set_name, 0)
                 set_counts[ring.set_name] += 1
@@ -341,13 +370,13 @@ Each movement takes 1 hour of your day. Make sure to rest when needed!
             left = left_side[i] if i < len(left_side) else ""
             right = right_side[i] if i < len(right_side) else ""
             if left and right:
-                messages.append(f"{left:<30} {right}")
+                print(f"{left:<30} {right}")
             else:
-                messages.append(left or right)
+                print(left or right)
 
         # Display set bonuses for each set
         if set_counts:
-            messages.append("\n=== Set Bonuses ===")
+            print("\n=== Set Bonuses ===")
             for set_name, count in set_counts.items():
                 # Get set_bonus from the first item in the set
                 _, example_item = set_items[set_name][0]
@@ -357,25 +386,100 @@ Each movement takes 1 hour of your day. Make sure to rest when needed!
                         set_bonus = ast.literal_eval(set_bonus)
                     except Exception:
                         set_bonus = None
-                messages.append(f"{set_name} ({count}/{len(set_bonus) if set_bonus else '?'}) equipped:")
+                print(f"{set_name} ({count}/{len(set_bonus) if set_bonus else '?'}) equipped:")
                 if set_bonus:
                     for key in sorted(set_bonus.keys()):
                         desc = set_bonus[key]['description']
                         num_required = int(key.split('_')[0])
                         active = count >= num_required
                         status = '[ACTIVE]' if active else '[      ]'
-                        messages.append(f"  {status} {key.replace('_', ' ')}: {desc}")
+                        print(f"  {status} {key.replace('_', ' ')}: {desc}")
 
-        # Inventory section
-        messages.append("\n=== Inventory ===")
+        # Display inventory items
+        print("\n=== Inventory Items ===")
         if self.current_player.inventory:
-            for item in self.current_player.inventory:
-                messages.append(f"- {item}")
+            for i, item in enumerate(self.current_player.inventory, 1):
+                print(f"{i}. {item.name} ({item.rarity})")
+                print(f"   Type: {item.type}")
+                print(f"   Slot: {item.slot}")
+                print(f"   Level Req: {item.level_req}")
+                print(f"   Stats: {item.stats}")
+                if item.get('effect'):
+                    print(f"   Effect: {item['effect']}")
+                if item.get('special_bonus'):
+                    print(f"   Special Bonus: {item['special_bonus']}")
+                if item.get('set_name'):
+                    print(f"   Set: {item['set_name']}")
+                print()
         else:
-            messages.append("Empty")
+            print("Empty")
 
-        for message in messages:
-            self.message_log.append(message)
+        print("\nCommands:")
+        print("equip <number> - Equip an item from your inventory")
+        print("unequip <slot> - Unequip an item (e.g., 'unequip main_hand')")
+        print("back - Return to game")
+        
+        while True:
+            command = input("\nEnter command: ").strip().lower()
+            
+            if command == "back":
+                break
+            elif command.startswith("equip "):
+                try:
+                    item_num = int(command.split()[1])
+                    if 1 <= item_num <= len(self.current_player.inventory):
+                        item = self.current_player.inventory[item_num - 1]
+                        # Check if slot is occupied
+                        if item.slot == ItemSlot.RING:
+                            # For rings, find the first empty slot or use the last slot
+                            empty_slot = None
+                            for i in range(10):
+                                if i >= len(self.current_player.rings) or self.current_player.rings[i] is None:
+                                    empty_slot = i
+                                    break
+                            if empty_slot is None:
+                                empty_slot = len(self.current_player.rings)
+                            if empty_slot < 10:
+                                success, message = self.current_player.equip_item(item, empty_slot)
+                            else:
+                                self.add_message("You can only equip up to 10 rings!")
+                                continue
+                        else:
+                            # For other items, automatically unequip if slot is occupied
+                            if item.slot in self.current_player.equipment and self.current_player.equipment[item.slot]:
+                                old_item = self.current_player.equipment[item.slot]
+                                self.current_player.unequip_item(item.slot)
+                                self.add_message(f"Unequipped {old_item.name}")
+                            success, message = self.current_player.equip_item(item)
+                        
+                        self.add_message(message)
+                        if success:
+                            self.current_player.save()
+                            self.show_inventory()  # Refresh the display
+                    else:
+                        self.add_message("Invalid item number")
+                except (ValueError, IndexError):
+                    self.add_message("Invalid command format")
+            elif command.startswith("unequip "):
+                try:
+                    slot_name = command.split()[1].upper()
+                    if slot_name in [slot.name for slot in ItemSlot]:
+                        slot = ItemSlot[slot_name]
+                        success, message = self.current_player.unequip_item(slot)
+                        self.add_message(message)
+                        if success:
+                            self.current_player.save()
+                            self.show_inventory()  # Refresh the display
+                    else:
+                        self.add_message("Invalid slot name")
+                except (ValueError, IndexError):
+                    self.add_message("Invalid command format")
+            else:
+                self.add_message("Invalid command")
+            
+            # Clear screen and redisplay after each command
+            self.clear_screen()
+            self.show_inventory()
     
     def show_shadows(self):
         if not self.current_player.shadows:
@@ -629,6 +733,98 @@ Each movement takes 1 hour of your day. Make sure to rest when needed!
             return
         else:
             self.add_message("Invalid command")
+    
+    def display_guild_screen(self):
+        """Display the guild screen."""
+        self.clear_screen()
+        print("=== Guild Hall ===")
+        print(f"Gold: {self.current_player.gold}")
+        
+        # Display latest message if any
+        if self.message_log:
+            print(f"\n=== Latest Message ===")
+            print(self.message_log[-1])
+        
+        print("\nAvailable Services:")
+        print("1. Guild Master")
+        print("   - Take on quests")
+        print("   - Learn about the guild")
+        print("   - Get training")
+        print("\n2. Reward Manager")
+        print("   - Redeem special codes")
+        print("   - Claim rewards")
+        print("\n3. Return to Town")
+        
+        choice = input("\nWhat would you like to do? ")
+        
+        if choice == '1':
+            self.display_guild_master_dialogue()
+        elif choice == '2':
+            self.display_reward_manager_screen()
+        elif choice == '3':
+            self.game_state = 'playing'
+        else:
+            self.add_message("Invalid choice!")
+    
+    def display_reward_manager_screen(self):
+        """Display the reward manager screen."""
+        self.clear_screen()
+        print("=== Reward Manager ===")
+        print(f"Gold: {self.current_player.gold}")
+        
+        # Display latest message if any
+        if self.message_log:
+            print(f"\n=== Latest Message ===")
+            print(self.message_log[-1])
+        
+        dialogue = self.reward_manager.get_dialogue()
+        print(f"\n{dialogue['greeting']}")
+        print(dialogue['help'])
+        
+        while True:
+            print("\nCommands:")
+            print("redeem <code> - Redeem a code")
+            print("back - Return to Guild Hall")
+            
+            command = input("\nEnter command: ").strip().lower()
+            
+            if command == "back":
+                break
+            elif command.startswith("redeem "):
+                code = command.split(" ", 1)[1]
+                success, message = self.reward_manager.redeem_code(self.current_player, code)
+                self.add_message(message)
+                
+                if success:
+                    self.add_message(dialogue['success'])
+                    self.current_player.save()  # Save after successful redemption
+                
+                # Clear screen and redisplay the interface
+                self.clear_screen()
+                print("=== Reward Manager ===")
+                print(f"Gold: {self.current_player.gold}")
+                
+                # Display latest message
+                if self.message_log:
+                    print(f"\n=== Latest Message ===")
+                    print(self.message_log[-1])
+                
+                print(f"\n{dialogue['greeting']}")
+                print(dialogue['help'])
+            else:
+                self.add_message("Invalid command!")
+                # Clear screen and redisplay the interface
+                self.clear_screen()
+                print("=== Reward Manager ===")
+                print(f"Gold: {self.current_player.gold}")
+                
+                # Display latest message
+                if self.message_log:
+                    print(f"\n=== Latest Message ===")
+                    print(self.message_log[-1])
+                
+                print(f"\n{dialogue['greeting']}")
+                print(dialogue['help'])
     
     def run(self):
         while True:

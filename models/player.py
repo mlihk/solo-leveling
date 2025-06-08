@@ -13,14 +13,39 @@ class Player:
         self.name = name
         self.level = 1
         self.experience = 0
-        self.health = 100
-        self.max_health = 100
-        self.mana = 100
-        self.max_mana = 100
+        
+        # Core Stats
         self.strength = 10
         self.dexterity = 10
         self.intelligence = 10
         self.vitality = 10
+        
+        # Combat Stats
+        self.health = 100
+        self.max_health = 100
+        self.mana = 100
+        self.max_mana = 100
+        self.defense = 5
+        self.agility = 10
+        self.crit_chance = 5
+        self.dodge_chance = 5
+        self.cooldown_reduction = 0
+        self.shadow_cooldown_reduction = 0
+        self.shadow_extraction = 0
+        self.portal_chance = 0
+        
+        # Status Effects
+        self.frozen = False
+        self.blinded = False
+        self.silenced = False
+        self.confused = False
+        self.feared = False
+        self.marked = False
+        self.doomed = False
+        self.fire_immunity = False
+        self.curse_immunity = False
+        
+        # Resources
         self.gold = 0
         self.inventory = []
         self.equipment = {slot: None for slot in ItemSlot}
@@ -203,6 +228,10 @@ class Player:
             "Dexterity": self.dexterity,
             "Intelligence": self.intelligence,
             "Vitality": self.vitality,
+            "Defense": self.defense,
+            "Agility": self.agility,
+            "Crit Chance": f"{self.crit_chance}%",
+            "Dodge Chance": f"{self.dodge_chance}%",
             "Gold": self.gold
         }
         
@@ -233,14 +262,25 @@ class Player:
         self.dexterity += 2
         self.intelligence += 2
         self.vitality += 2
+        self.defense += 1
+        self.agility += 1
+        self.crit_chance += 0.5
+        self.dodge_chance += 0.5
     
     def heal(self, amount):
         """Heal the player."""
         self.health = min(self.health + amount, self.max_health)
     
     def restore_mana(self, amount):
-        """Restore mana."""
-        self.mana = min(self.mana + amount, self.max_mana)
+        """Restore mana points."""
+        self.mana = min(self.max_mana, self.mana + amount)
+    
+    def use_mana(self, amount):
+        """Use mana points. Returns True if successful, False if not enough mana."""
+        if self.mana >= amount:
+            self.mana -= amount
+            return True
+        return False
     
     def add_shadow(self, shadow):
         if len(self.shadows) < 3:
@@ -371,4 +411,11 @@ class Player:
             # Remove the item from inventory if it's a consumable
             if item.item_type == ItemType.CONSUMABLE:
                 self.inventory.remove(item)
-        return success, message 
+        return success, message
+    
+    def take_damage(self, damage):
+        """Take damage and return actual damage dealt."""
+        # Apply defense reduction
+        actual_damage = max(1, damage - (self.defense // 2))
+        self.health = max(0, self.health - actual_damage)
+        return actual_damage 
