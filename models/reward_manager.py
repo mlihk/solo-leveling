@@ -114,4 +114,20 @@ class RewardManager:
             'used_code': "I'm sorry, but you have already used this code.",
             'success': "Excellent! Your rewards have been added to your account.",
             'farewell': "Come back anytime you have a code to redeem!"
-        } 
+        }
+
+    def reset_used_codes(self):
+        """Reset all used redeem codes, allowing them to be used again."""
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute("DELETE FROM used_redeem_codes")
+            conn.commit()
+            return True
+        except Exception as e:
+            print(f"Error resetting used codes: {e}")
+            return False
+        finally:
+            if conn:
+                conn.close() 

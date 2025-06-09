@@ -79,11 +79,7 @@ LOCATIONS = {
     'dungeon': Location(
         "Dungeon",
         "A dangerous place filled with monsters. The deeper you go, the stronger they become.",
-        [
-            Event("A monster appears!", 1, 0.7, 'combat', {}),
-            Event("You find a treasure chest!", 1, 0.3, 'treasure', {'gold': 100}),
-            Event("You discover a mysterious portal.", 1, 0.1, 'portal', {})
-        ]
+        []  # Removed random events since they're handled by the dungeon system
     ),
     'guild': Location(
         "Guild Hall",

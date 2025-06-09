@@ -64,7 +64,7 @@ class Effect:
         elif self.type == EffectType.BURN:
             damage = self.power * 3
             target.take_damage(damage)
-            return f"{target.username} takes {damage} burn damage!"
+            return f"{target.name} takes {damage} burn damage!"
         
         elif self.type == EffectType.BLEED:
             damage = self.power * 2

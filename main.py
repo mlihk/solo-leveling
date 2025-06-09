@@ -11,6 +11,8 @@ from models.classes import PlayerClass
 from models.shop import Shop
 from models.tower import Tower
 from models.reward_manager import RewardManager
+from models.dungeon import Dungeon
+from models.dungeon_rewards import DungeonReward
 
 class Game:
     def __init__(self):
@@ -22,12 +24,14 @@ class Game:
         self.current_location = None
         self.current_combat = None
         self.game_time = GameTime()
-        self.game_state = 'login'  # login, playing, combat, menu, shop, tower
+        self.game_state = 'login'  # login, playing, combat, menu, shop, tower, dungeon
         self.message_log = []
         self.max_messages = 20  # Increased to handle inventory display
         self.shop = Shop()
         self.tower = Tower()
         self.reward_manager = RewardManager()  # Add reward manager
+        self.dungeon = Dungeon()  # Add dungeon instance
+        self.dungeon_rewards = DungeonReward()  # Add dungeon rewards instance
     
     def clear_screen(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -61,6 +65,8 @@ class Game:
             self.display_shop_screen()
         elif self.game_state == 'tower':
             self.display_tower_screen()
+        elif self.game_state == 'dungeon':
+            self.display_dungeon_screen()
         elif self.game_state == 'guild':
             self.display_guild_screen()
     
@@ -231,6 +237,9 @@ class Game:
             elif location_key == 'guild':
                 self.game_state = 'guild'
                 return
+            elif location_key == 'dungeon':
+                self.game_state = 'dungeon'
+                return
             else:
                 self.add_message(f"You are already at {self.current_location.name}.")
                 return
@@ -249,6 +258,9 @@ class Game:
             return
         elif location_key == 'guild':
             self.game_state = 'guild'
+            return
+        elif location_key == 'dungeon':
+            self.game_state = 'dungeon'
             return
         
         # Trigger random event
@@ -490,131 +502,74 @@ Each movement takes 1 hour of your day. Make sure to rest when needed!
                 self.add_message(f"- {shadow.name} (Level {shadow.level})")
     
     def display_combat_screen(self):
-        if not self.current_combat:
-            self.game_state = 'playing'
-            return
-        
+        """Display the combat screen."""
         self.clear_screen()
         print("=== Combat ===")
         
         # Display combat status
-        stats = self.current_combat.get_battle_status()
-        for key, value in stats.items():
-            if key != 'battle_log':
-                print(f"{key}: {value}")
+        print(f"\n{self.current_combat.player.name} (HP: {self.current_combat.player.health}/{self.current_combat.player.max_health})")
+        print(f"vs")
+        print(f"{self.current_combat.enemy.name} (HP: {self.current_combat.enemy.health}/{self.current_combat.enemy.max_health})")
         
-        # Display battle log
-        if 'battle_log' in stats:
-            print("\n=== Battle Log ===")
-            for log in stats['battle_log'][-3:]:
-                print(log)
+        # Display combat log
+        if self.combat_log:
+            print("\n=== Combat Log ===")
+            for message in self.combat_log[-5:]:  # Show last 5 messages
+                print(message)
         
-        # Display controls based on player's class
-        print("\n=== Controls ===")
-        print("A - Attack    F - Fireball    H - Heal    Q - Quit")
+        print("\nCommands:")
+        print("attack - Attack the enemy")
+        print("skill - Use a skill")
+        print("item - Use an item")
+        print("flee - Try to flee (not available in dungeons)")
         
-        # Add class-specific controls
-        if self.current_player.player_class:
-            if self.current_player.player_class == PlayerClass.SHADOW_MONARCH:
-                print("S - Shadow    B - Shadow Boost")
-            elif self.current_player.player_class == PlayerClass.WARRIOR:
-                print("B - Berserk")
-            elif self.current_player.player_class == PlayerClass.MAGE:
-                print("B - Mana Shield")
-            elif self.current_player.player_class == PlayerClass.ROGUE:
-                print("B - Stealth")
-            elif self.current_player.player_class == PlayerClass.PRIEST:
-                print("B - Divine Shield")
-            elif self.current_player.player_class == PlayerClass.HUNTER:
-                print("B - Trap")
-            elif self.current_player.player_class == PlayerClass.PALADIN:
-                print("B - Holy Shield")
-            elif self.current_player.player_class == PlayerClass.NECROMANCER:
-                print("B - Summon Undead")
-            elif self.current_player.player_class == PlayerClass.BERSERKER:
-                print("B - Rage")
-            elif self.current_player.player_class == PlayerClass.ASSASSIN:
-                print("B - Shadow Step")
+        command = input("\nEnter command: ").strip().lower()
         
-        # Get player input
-        action = input("\nEnter action: ").lower().strip()
-        
-        if action == 'q':
-            self.game_state = 'playing'
-            self.current_combat = None
-            return
-        
-        if action == 'a':
-            result = self.current_combat.execute_turn('attack')
-        elif action == 'f':
-            result = self.current_combat.execute_turn('skill', 'fireball')
-        elif action == 'h':
-            result = self.current_combat.execute_turn('skill', 'heal')
-        elif action == 'b':
-            # Handle class-specific boost abilities
-            if self.current_player.player_class:
-                if self.current_player.player_class == PlayerClass.SHADOW_MONARCH:
-                    result = self.current_combat.execute_turn('skill', 'shadow_boost')
-                elif self.current_player.player_class == PlayerClass.WARRIOR:
-                    result = self.current_combat.execute_turn('skill', 'berserk')
-                elif self.current_player.player_class == PlayerClass.MAGE:
-                    result = self.current_combat.execute_turn('skill', 'mana_shield')
-                elif self.current_player.player_class == PlayerClass.ROGUE:
-                    result = self.current_combat.execute_turn('skill', 'stealth')
-                elif self.current_player.player_class == PlayerClass.PRIEST:
-                    result = self.current_combat.execute_turn('skill', 'divine_shield')
-                elif self.current_player.player_class == PlayerClass.HUNTER:
-                    result = self.current_combat.execute_turn('skill', 'trap')
-                elif self.current_player.player_class == PlayerClass.PALADIN:
-                    result = self.current_combat.execute_turn('skill', 'holy_shield')
-                elif self.current_player.player_class == PlayerClass.NECROMANCER:
-                    result = self.current_combat.execute_turn('skill', 'summon_undead')
-                elif self.current_player.player_class == PlayerClass.BERSERKER:
-                    result = self.current_combat.execute_turn('skill', 'rage')
-                elif self.current_player.player_class == PlayerClass.ASSASSIN:
-                    result = self.current_combat.execute_turn('skill', 'shadow_step')
-            else:
-                self.add_message("You need to awaken to a class first!")
-                return
-        elif action == 's':
-            # Shadow ability is only available for Shadow Monarch
-            if self.current_player.player_class == PlayerClass.SHADOW_MONARCH:
-                self.current_combat.attempt_shadow_extraction()
-                result = 'continue'
-            else:
-                self.add_message("Only the Shadow Monarch can use shadow abilities!")
-                return
-        else:
-            self.add_message("Invalid action!")
-            return
-        
-        if result != 'continue':
-            self.handle_combat_end(result)
-    
-    def handle_combat_end(self, result):
-        if result == 'victory':
-            # Give rewards
-            self.current_player.gain_experience(self.current_combat.enemy.experience_reward)
-            self.current_player.gold += self.current_combat.enemy.gold_reward
+        if command == "attack":
+            result = self.current_combat.player_attack()
+            self.combat_log.append(result)
             
-            # If in tower, give additional floor rewards
-            if self.game_state == 'tower':
-                floor_rewards = self.tower.get_floor_rewards()
-                self.current_player.gain_experience(floor_rewards['experience'])
-                self.current_player.gold += floor_rewards['gold']
-                self.add_message(f"Floor {self.tower.current_floor} cleared! Gained {floor_rewards['experience']} XP and {floor_rewards['gold']} gold!")
-                
-                # Advance to next floor
-                if self.tower.advance_floor():
-                    self.add_message(f"Advanced to floor {self.tower.current_floor}!")
+            if not self.current_combat.is_enemy_defeated():
+                result = self.current_combat.enemy_attack()
+                self.combat_log.append(result)
+            
+            if self.current_combat.is_player_defeated():
+                self.add_message("You have been defeated!")
+                if self.game_state == 'dungeon':
+                    # In dungeon, reset the run on defeat
+                    self.dungeon.reset_difficulty()
+                    self.game_state = 'dungeon'
                 else:
-                    self.add_message("Congratulations! You have cleared the Tower of Trial!")
-            
-            self.current_player.save()
-            self.add_message(f"Victory! Gained {self.current_combat.enemy.experience_reward} XP and {self.current_combat.enemy.gold_reward} gold!")
-        
-        self.game_state = 'playing' if self.game_state != 'tower' else 'tower'
-        self.current_combat = None
+                    self.game_state = 'playing'
+                return
+            elif self.current_combat.is_enemy_defeated():
+                self.add_message(f"You defeated {self.current_combat.enemy.name}!")
+                if self.game_state == 'dungeon':
+                    # In dungeon, advance to next room
+                    self.dungeon.advance_encounter(self.current_player.level)
+                    self.game_state = 'dungeon'
+                else:
+                    self.game_state = 'playing'
+                return
+        elif command == "skill":
+            # TODO: Implement skill system
+            self.add_message("Skills not implemented yet!")
+        elif command == "item":
+            # TODO: Implement item system
+            self.add_message("Items not implemented yet!")
+        elif command == "flee":
+            if self.game_state == 'dungeon':
+                self.add_message("You cannot flee in a dungeon!")
+            else:
+                if self.current_combat.try_flee():
+                    self.add_message("You successfully fled!")
+                    self.game_state = 'playing'
+                else:
+                    self.add_message("Failed to flee!")
+                    result = self.current_combat.enemy_attack()
+                    self.combat_log.append(result)
+        else:
+            self.add_message("Invalid command")
     
     def display_shop_screen(self):
         """Display the shop screen with available items."""
@@ -826,9 +781,226 @@ Each movement takes 1 hour of your day. Make sure to rest when needed!
                 print(f"\n{dialogue['greeting']}")
                 print(dialogue['help'])
     
+    def display_dungeon_screen(self):
+        """Display the dungeon screen."""
+        self.clear_screen()
+        print("=== Dungeon System ===")
+        print(f"Current Dungeon: {self.dungeon.get_dungeon_name()}")
+        print(f"Difficulty Level: {self.dungeon.current_difficulty}")
+        
+        # Only show room information if a run has started
+        if self.dungeon.encounters_completed > 0:
+            print(f"Rooms Completed: {self.dungeon.encounters_completed}/{self.dungeon.total_encounters}")
+            print(f"\n{self.dungeon.get_story_progress()}")
+            
+            # Display current room description if in a room
+            if self.dungeon.current_room_type:
+                print(f"\n=== Current Room ===")
+                print(self.dungeon.get_room_description())
+                
+                # Display puzzle if in a puzzle room
+                if self.dungeon.current_room_type == 'puzzle':
+                    puzzle = self.dungeon.get_current_puzzle()
+                    if puzzle:
+                        print(f"\n=== Puzzle ===")
+                        print(puzzle.question)
+                        print(f"\nAttempts remaining: {puzzle.get_remaining_attempts()}")
+        else:
+            print("\nA dangerous place filled with monsters. The deeper you go, the stronger they become.")
+            print("Complete all rooms to claim rewards and increase difficulty.")
+        
+        # Display player stats
+        print("\n=== Character Stats ===")
+        stats = self.current_player.get_stats()
+        # Display stats in two columns
+        stat_items = list(stats.items())
+        for i in range(0, len(stat_items), 2):
+            if i + 1 < len(stat_items):
+                print(f"{stat_items[i][0]}: {stat_items[i][1]:<10} {stat_items[i+1][0]}: {stat_items[i+1][1]}")
+            else:
+                print(f"{stat_items[i][0]}: {stat_items[i][1]}")
+        
+        # Display messages
+        if self.message_log:
+            print("\n=== Latest Message ===")
+            print(self.message_log[-1])
+        
+        print("\nCommands:")
+        if self.dungeon.encounters_completed == 0:
+            print("start - Start a new dungeon run")
+            print("leave - Leave the dungeon")
+        elif self.dungeon.encounters_completed < self.dungeon.total_encounters:
+            if self.dungeon.current_room_type == 'combat':
+                print("fight - Engage in combat")
+            elif self.dungeon.current_room_type == 'puzzle':
+                print("answer <text> - Submit your answer to the puzzle")
+                print("hint - Get a hint for the puzzle")
+            elif self.dungeon.current_room_type == 'trap':
+                print("disarm - Try to disarm the trap")
+            elif self.dungeon.current_room_type == 'treasure':
+                print("loot - Collect the treasure")
+            print("skip - Skip this room (with penalty)")
+            print("surrender - Give up and return to town (with penalty)")
+        else:
+            print("claim - Claim rewards and increase difficulty")
+            print("reset - Reset difficulty and start over")
+            print("leave - Leave the dungeon")
+        
+        command = input("\nEnter command: ").strip().lower()
+        
+        if command == "leave":
+            if self.dungeon.encounters_completed == 0 or self.dungeon.encounters_completed >= self.dungeon.total_encounters:
+                self.game_state = 'playing'
+                return
+            else:
+                self.add_message("You cannot leave during an active dungeon run! Use 'surrender' to give up.")
+                return
+        elif command == "surrender" and 0 < self.dungeon.encounters_completed < self.dungeon.total_encounters:
+            # Apply surrender penalty
+            self.current_player.take_damage(20)  # Take significant damage
+            self.current_player.gold = max(0, self.current_player.gold - 100)  # Lose some gold
+            self.add_message("You surrender and flee the dungeon, taking heavy penalties!")
+            self.dungeon.reset_difficulty()  # Reset the dungeon
+            self.game_state = 'playing'
+            return
+        elif command == "start" and self.dungeon.encounters_completed == 0:
+            # Start new run and generate first room
+            self.dungeon.start_new_run()
+            self.dungeon.advance_encounter(self.current_player.level)
+            self.add_message("Starting new dungeon run...")
+            return
+        elif command == "fight" and self.dungeon.current_room_type == 'combat':
+            enemy = self.dungeon.generate_enemy(self.current_player.level)
+            if enemy:
+                self.current_combat = Combat(self.current_player, enemy)
+                self.game_state = 'combat'
+            return
+        elif command.startswith("answer ") and self.dungeon.current_room_type == 'puzzle':
+            answer = command[7:].strip()  # Remove "answer " from the command
+            puzzle = self.dungeon.get_current_puzzle()
+            if puzzle:
+                if puzzle.check_answer(answer):
+                    self.add_message("Correct! The puzzle is solved!")
+                    puzzle.solved = True
+                    self.dungeon.advance_encounter(self.current_player.level)
+                else:
+                    self.add_message("Incorrect answer!")
+                    if puzzle.get_remaining_attempts() <= 0:
+                        self.add_message("You've run out of attempts! Taking damage...")
+                        self.current_player.take_damage(15)  # Take damage for failing
+                        self.dungeon.advance_encounter(self.current_player.level)
+            return
+        elif command == "hint" and self.dungeon.current_room_type == 'puzzle':
+            puzzle = self.dungeon.get_current_puzzle()
+            if puzzle:
+                self.add_message(puzzle.get_hint())
+            return
+        elif command == "disarm" and self.dungeon.current_room_type == 'trap':
+            # TODO: Implement trap disarming
+            self.add_message("You successfully disarm the trap!")
+            self.dungeon.advance_encounter(self.current_player.level)
+            return
+        elif command == "loot" and self.dungeon.current_room_type == 'treasure':
+            # TODO: Implement treasure collection
+            self.add_message("You collect valuable treasures!")
+            self.dungeon.advance_encounter(self.current_player.level)
+            return
+        elif command == "skip" and self.dungeon.encounters_completed < self.dungeon.total_encounters:
+            # Apply penalty for skipping
+            self.current_player.take_damage(10)  # Take some damage
+            self.add_message("You take damage while trying to skip the room!")
+            self.dungeon.advance_encounter(self.current_player.level)
+            return
+        elif command == "claim" and self.dungeon.encounters_completed >= self.dungeon.total_encounters:
+            if not self.dungeon.rewards_claimed:
+                rewards = self.dungeon_rewards.generate_rewards(self.dungeon.current_difficulty)
+                self.current_player.gold += rewards['gold']
+                self.current_player.gain_experience(rewards['experience'])
+                
+                # Add items to player's inventory
+                for item in rewards['items']:
+                    # TODO: Implement adding items to inventory
+                    self.add_message(f"Received {item['name']}!")
+                
+                self.add_message(f"Claimed rewards: {rewards['gold']} gold, {rewards['experience']} experience!")
+                self.dungeon.rewards_claimed = True
+                
+                if self.dungeon.increase_difficulty():
+                    self.add_message(f"Increased difficulty to {self.dungeon.current_difficulty}!")
+                else:
+                    self.add_message("You've reached the maximum difficulty!")
+            else:
+                self.add_message("You've already claimed the rewards for this difficulty!")
+            return
+        elif command == "reset":
+            self.dungeon.reset_difficulty()
+            self.add_message("Dungeon difficulty has been reset!")
+            return
+        else:
+            self.add_message("Invalid command")
+    
+    def display_playing_screen(self):
+        """Display the main playing screen."""
+        self.clear_screen()
+        print("=== Solo Leveling RPG ===")
+        print(f"{self.game_time.get_day_string()} - {self.game_time.get_time_string()}")
+        print(f"Remaining hours today: {self.game_time.get_remaining_hours()}")
+        
+        # Display current location
+        print(f"\n=== Current Location: {self.current_location.name} ===")
+        print(self.current_location.description)
+        
+        # Display player stats
+        print("\n=== Character Stats ===")
+        stats = self.current_player.get_stats()
+        # Display stats in two columns
+        stat_items = list(stats.items())
+        for i in range(0, len(stat_items), 2):
+            if i + 1 < len(stat_items):
+                print(f"{stat_items[i][0]}: {stat_items[i][1]:<10} {stat_items[i+1][0]}: {stat_items[i+1][1]}")
+            else:
+                print(f"{stat_items[i][0]}: {stat_items[i][1]}")
+        
+        # Display messages
+        if self.message_log:
+            print("\n=== Latest Message ===")
+            print(self.message_log[-1])
+        
+        # Display available locations
+        print("\n=== Available Locations ===")
+        for key, location in LOCATIONS.items():
+            print(f"- {location.name}")
+        
+        # Display command prompt
+        print("\nEnter a command (type 'help' for available commands):")
+        command = input("> ").lower().strip()
+        self.process_command(command)
+    
     def run(self):
         while True:
-            self.display_screen()
+            try:
+                if self.game_state == 'login':
+                    self.display_login_screen()
+                elif self.game_state == 'playing':
+                    self.display_playing_screen()
+                elif self.game_state == 'combat':
+                    self.display_combat_screen()
+                elif self.game_state == 'menu':
+                    self.display_menu_screen()
+                elif self.game_state == 'shop':
+                    self.display_shop_screen()
+                elif self.game_state == 'tower':
+                    self.display_tower_screen()
+                elif self.game_state == 'dungeon':
+                    self.display_dungeon_screen()
+                elif self.game_state == 'guild':
+                    self.display_guild_screen()
+                else:
+                    print("Invalid game state!")
+                    break
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                break
 
 if __name__ == "__main__":
     game = Game()
